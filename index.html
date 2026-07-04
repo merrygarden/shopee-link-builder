@@ -324,13 +324,101 @@
       gap:0 14px;
     }
   }
+  #lockScreen{
+    position:fixed;
+    inset:0;
+    background:var(--bg);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:2000;
+    padding:20px;
+  }
+  #lockScreen.hidden{display:none;}
+  .lock-card{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:28px 24px;
+    max-width:340px;
+    width:100%;
+    text-align:center;
+  }
+  .lock-card .dot{
+    width:14px;
+    height:14px;
+    border-radius:50%;
+    background:linear-gradient(135deg,var(--olive),var(--lilac));
+    display:inline-block;
+    margin-bottom:12px;
+  }
+  .lock-card h2{
+    margin:0 0 6px;
+    font-size:1.05rem;
+  }
+  .lock-card p{
+    color:var(--muted);
+    font-size:.85rem;
+    margin:0 0 18px;
+  }
+  .lock-card input[type=password]{
+    width:100%;
+    padding:11px 12px;
+    border:1.5px solid var(--border);
+    border-radius:10px;
+    font-size:.94rem;
+    text-align:center;
+    margin-bottom:10px;
+  }
+  .lock-card input[type=password]:focus{
+    outline:none;
+    border-color:var(--olive);
+    box-shadow:0 0 0 3px rgba(147,166,110,.18);
+  }
+  .lock-card input.shake{
+    border-color:var(--danger);
+    animation:shake .3s;
+  }
+  .lock-error{
+    color:var(--danger);
+    font-size:.8rem;
+    margin:-4px 0 10px;
+    min-height:1em;
+  }
+  @keyframes shake{
+    0%,100%{transform:translateX(0);}
+    25%{transform:translateX(-6px);}
+    75%{transform:translateX(6px);}
+  }
+  .logout-link{
+    display:block;
+    text-align:center;
+    font-size:.75rem;
+    color:var(--muted);
+    margin-top:10px;
+    cursor:pointer;
+    text-decoration:underline;
+  }
 </style>
 </head>
 <body>
+
+<div id="lockScreen">
+  <div class="lock-card">
+    <span class="dot"></span>
+    <h2>Shopee Affiliate Link Builder</h2>
+    <p>กรุณาใส่รหัสผ่านเพื่อเข้าใช้งาน</p>
+    <input type="password" id="lockPassword" placeholder="รหัสผ่าน" autocomplete="off">
+    <div class="lock-error" id="lockError"></div>
+    <button class="btn btn-primary" id="lockSubmit" style="width:100%;">เข้าสู่ระบบ</button>
+  </div>
+</div>
+
 <div class="container">
   <header>
     <div class="logo"><span class="dot"></span> Shopee Affiliate Link Builder</div>
     <p>สร้างลิงก์แอฟฟิลิเอตพร้อมพารามิเตอร์ติดตามผล (sub_id) ได้ในไม่กี่วินาที</p>
+    <span class="logout-link" id="logoutLink">ออกจากระบบ</span>
   </header>
 
   <div class="card">
@@ -445,8 +533,51 @@
 
 <script>
 const STORAGE_KEY = 'shopee_affiliate_history';
+const AUTH_KEY = 'shopee_auth_ok';
+const PASSWORD_HASH = 'c0d4419c355c0890e094d8ecea70472848d7ef72e2d3e44e689309d491b82a2b';
 
 const el = id => document.getElementById(id);
+
+async function sha256Hex(text){
+  const enc = new TextEncoder().encode(text);
+  const buf = await crypto.subtle.digest('SHA-256', enc);
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+async function checkPassword(){
+  const input = el('lockPassword');
+  const value = input.value;
+  const hash = await sha256Hex(value);
+
+  if(hash === PASSWORD_HASH){
+    localStorage.setItem(AUTH_KEY, '1');
+    el('lockScreen').classList.add('hidden');
+    el('lockError').textContent = '';
+  }else{
+    el('lockError').textContent = 'รหัสผ่านไม่ถูกต้อง';
+    input.classList.remove('shake');
+    void input.offsetWidth;
+    input.classList.add('shake');
+    input.value = '';
+    input.focus();
+  }
+}
+
+el('lockSubmit').addEventListener('click', checkPassword);
+el('lockPassword').addEventListener('keydown', (e) => {
+  if(e.key === 'Enter') checkPassword();
+});
+
+el('logoutLink').addEventListener('click', () => {
+  localStorage.removeItem(AUTH_KEY);
+  el('lockScreen').classList.remove('hidden');
+  el('lockPassword').value = '';
+  el('lockPassword').focus();
+});
+
+if(localStorage.getItem(AUTH_KEY) === '1'){
+  el('lockScreen').classList.add('hidden');
+}
 
 const PLACEMENT_MAP = {
   fb: ['reel','bio','group','comment'],
